@@ -139,6 +139,7 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
 # LaTeX build artifacts
+relatorio/
 *.aux
 *.bbl
 *.bcf
