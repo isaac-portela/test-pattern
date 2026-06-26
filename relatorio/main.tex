@@ -1,0 +1,183 @@
+\documentclass[
+    12pt,
+    openright,
+    oneside,
+    a4paper,
+    chapter=TITLE,
+    section=TITLE,
+    brazil,
+]{abntex2}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{indentfirst}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage[
+    alf,
+    abnt-emphasize=bf,
+    abnt-etal-list=0,
+]{abntex2cite}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=black,
+    citecolor=black,
+    urlcolor=blue,
+    pdftitle={Relatorio de Padroes de Teste},
+    pdfauthor={Preencher nome completo},
+}
+
+\setlength{\parindent}{1.25cm}
+\setlength{\parskip}{0.2cm}
+
+\definecolor{codigoFundo}{HTML}{F7F7F7}
+\definecolor{codigoBorda}{HTML}{D0D7DE}
+\definecolor{codigoTexto}{HTML}{24292F}
+
+\lstdefinestyle{javascript}{
+    language=JavaScript,
+    basicstyle=\ttfamily\footnotesize\color{codigoTexto},
+    backgroundcolor=\color{codigoFundo},
+    frame=single,
+    rulecolor=\color{codigoBorda},
+    breaklines=true,
+    columns=fullflexible,
+    keepspaces=true,
+    showstringspaces=false,
+    tabsize=2,
+}
+
+\titulo{Relat\'orio de Padr\~oes de Teste em um Checkout de E-commerce}
+\autor{[preencher nome completo]}
+\local{[preencher cidade]}
+\data{2026}
+\instituicao{%
+  [preencher nome da institui\c{c}\~ao]
+  \par
+  [preencher nome da disciplina]
+}
+\tipotrabalho{Relat\'orio}
+\preambulo{Relat\'orio apresentado como parte da atividade sobre padr\~oes de teste, com foco em Object Mother, Data Builder, Stubs e Mocks.}
+
+\begin{document}
+
+\imprimircapa
+\imprimirfolhaderosto
+
+\pdfbookmark[0]{\contentsname}{toc}
+\tableofcontents*
+\cleardoublepage
+
+\textual
+
+\chapter{Introdu\c{c}\~ao}
+
+Este relat\'orio descreve a constru\c{c}\~ao de uma su\'ite de testes unit\'arios para o servi\c{c}o \texttt{CheckoutService} de um sistema de e-commerce. O objetivo principal foi aplicar padr\~oes de teste que previnem problemas recorrentes em c\'odigo de teste, como setup obscuro, fragilidade por depend\^encias externas e dificuldade de manuten\c{c}\~ao.
+
+O projeto usa Jest para validar dois cen\'arios principais: a falha de pagamento, tratada com verifica\c{c}\~ao de estado, e a finaliza\c{c}\~ao de compra por cliente Premium, tratada com verifica\c{c}\~ao de comportamento \cite{jestMocks}. Para tornar o setup dos testes mais claro, foram implementados os padr\~oes Object Mother e Data Builder, conforme discutido por Meszaros \cite{xunitpatterns} e Fowler \cite{fowlerMocks}.
+
+\chapter{Padr\~oes de Cria\c{c}\~ao de Dados de Teste}
+
+\section{Object Mother para usu\'arios}
+
+O padr\~ao Object Mother foi aplicado na classe \texttt{UserMother}. Esse padr\~ao concentra a cria\c{c}\~ao de objetos simples e recorrentes, evitando que cada teste precise repetir detalhes irrelevantes de instancia\c{c}\~ao.
+
+No projeto, os usu\'arios possuem poucos atributos e dois perfis importantes para os testes: \texttt{PADRAO} e \texttt{PREMIUM}. Por isso, a cria\c{c}\~ao de m\'etodos est\'aticos como \texttt{umUsuarioPadrao()} e \texttt{umUsuarioPremium()} \'e suficiente e mant\'em a inten\c{c}\~ao dos testes expl\'icita.
+
+\begin{lstlisting}[style=javascript,caption={Object Mother para usu\'arios}]
+export class UserMother {
+    static umUsuarioPadrao() {
+        return new User(1, 'Usuario Padrao', 'padrao@email.com', 'PADRAO');
+    }
+
+    static umUsuarioPremium() {
+        return new User(2, 'Usuario Premium', 'premium@email.com', 'PREMIUM');
+    }
+}
+\end{lstlisting}
+
+\section{Data Builder para carrinhos}
+
+O \texttt{Carrinho} \'e mais vari\'avel do que \texttt{User}. Ele pode pertencer a usu\'arios diferentes, pode estar vazio ou conter combina\c{c}\~oes distintas de itens. Caso fosse usado apenas um \texttt{CarrinhoMother}, haveria uma tend\^encia de crescimento desordenado de m\'etodos, como \texttt{carrinhoVazio()}, \texttt{carrinhoPremium()}, \texttt{carrinhoComDoisItens()} e \texttt{carrinhoComValorEspecifico()}.
+
+Por esse motivo, foi usado o padr\~ao Data Builder. O \texttt{CarrinhoBuilder} possui valores padr\~ao seguros e m\'etodos fluentes para customiza\c{c}\~ao. Assim, cada teste informa apenas o que \'e relevante para o cen\'ario.
+
+\section{Exemplo antes e depois}
+
+Sem um builder, o teste precisaria montar todos os objetos manualmente, misturando a inten\c{c}\~ao do caso de teste com detalhes de infraestrutura do setup:
+
+\begin{lstlisting}[style=javascript,caption={Setup manual sem builder}]
+const user = new User(2, 'Usuario Premium', 'premium@email.com', 'PREMIUM');
+const itens = [
+    new Item('Produto A', 120),
+    new Item('Produto B', 80),
+];
+const carrinho = new Carrinho(user, itens);
+\end{lstlisting}
+
+Com o Data Builder, o setup fica mais expressivo. O teste deixa claro que o dado relevante \'e um carrinho de cliente Premium com R\$ 200,00 em itens:
+
+\begin{lstlisting}[style=javascript,caption={Setup com CarrinhoBuilder}]
+const userPremium = UserMother.umUsuarioPremium();
+const carrinho = new CarrinhoBuilder()
+    .comUser(userPremium)
+    .comItens([
+        new Item('Produto A', 120),
+        new Item('Produto B', 80),
+    ])
+    .build();
+\end{lstlisting}
+
+Essa abordagem melhora a legibilidade porque remove ru\'ido do Arrange e reduz duplica\c{c}\~ao. Tamb\'em melhora a manuten\c{c}\~ao: se a constru\c{c}\~ao padr\~ao de um carrinho mudar, a altera\c{c}\~ao fica concentrada no builder.
+
+\chapter{Padr\~oes de Test Doubles}
+
+\section{Stub no cen\'ario de falha de pagamento}
+
+No teste de falha de pagamento, o \texttt{GatewayPagamento} foi usado como Stub. A fun\c{c}\~ao dele \'e fornecer uma resposta controlada para o SUT, retornando \texttt{\{ success: false \}} quando \texttt{cobrar()} \'e chamado.
+
+\begin{lstlisting}[style=javascript,caption={Stub para falha de pagamento}]
+const gatewayStub = {
+    cobrar: jest.fn().mockResolvedValue({ success: false }),
+};
+
+const pedido = await checkoutService.processarPedido(carrinho, cartaoCredito);
+
+expect(pedido).toBeNull();
+\end{lstlisting}
+
+Nesse caso, a verifica\c{c}\~ao principal \'e de estado: o teste observa o resultado retornado por \texttt{processarPedido}. Como o pagamento falhou, o pedido deve ser \texttt{null} e as depend\^encias de persist\^encia e e-mail n\~ao devem ser acionadas.
+
+\section{Mock no cen\'ario de sucesso Premium}
+
+No teste de sucesso para cliente Premium, o \texttt{GatewayPagamento} continua atuando principalmente como Stub, pois retorna uma resposta positiva para permitir que o fluxo prossiga. O \texttt{PedidoRepository} tamb\'em foi usado como Stub, retornando um pedido salvo com identificador conhecido.
+
+O \texttt{EmailService}, por outro lado, foi usado como Mock. O interesse do teste n\~ao \'e apenas controlar seu retorno, mas verificar se a intera\c{c}\~ao aconteceu corretamente: uma chamada, com o e-mail do cliente Premium, o assunto esperado e a mensagem contendo o identificador do pedido.
+
+\begin{lstlisting}[style=javascript,caption={Verifica\c{c}\~ao de comportamento com Mock}]
+expect(gatewayStub.cobrar).toHaveBeenCalledWith(180, cartaoCredito);
+expect(emailMock.enviarEmail).toHaveBeenCalledTimes(1);
+expect(emailMock.enviarEmail).toHaveBeenCalledWith(
+    'premium@email.com',
+    'Seu Pedido foi Aprovado!',
+    'Pedido 10 no valor de R$180',
+);
+\end{lstlisting}
+
+A diferen\c{c}a pr\'atica \'e que Stubs s\~ao usados principalmente para controlar respostas e permitir a observa\c{c}\~ao do estado final, enquanto Mocks s\~ao usados para verificar comportamento e intera\c{c}\~oes obrigat\'orias entre objetos \cite{fowlerMocks}.
+
+\chapter{Conclus\~ao}
+
+O uso deliberado de Object Mother, Data Builder, Stubs e Mocks contribui para uma su\'ite de testes mais sustent\'avel. Os padr\~oes de cria\c{c}\~ao de dados reduzem setup obscuro e tornam os cen\'arios mais leg\'iveis. Os test doubles isolam o \texttt{CheckoutService} de servi\c{c}os externos, evitando testes lentos, fr\'ageis ou dependentes de infraestrutura real.
+
+Como resultado, os testes ficam mais focados nas regras de neg\'ocio: falha de pagamento, desconto de cliente Premium, persist\^encia do pedido e envio de e-mail. Essa separa\c{c}\~ao torna a su\'ite mais clara para leitura, mais barata de alterar e mais eficiente para detectar regress\~oes.
+
+\postextual
+
+\bibliography{referencias}
+
+\end{document}
